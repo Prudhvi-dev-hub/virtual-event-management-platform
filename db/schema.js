@@ -1,4 +1,4 @@
-import { mysqlTable, varchar, serial, timestamp,mysqlEnum,datetime,int } from "drizzle-orm/mysql-core";
+import { mysqlTable, varchar, serial, timestamp,mysqlEnum,datetime,bigint } from "drizzle-orm/mysql-core";
 import { sql } from 'drizzle-orm';
 
 export const admins = mysqlTable("admins", {
@@ -33,7 +33,7 @@ export const participants = mysqlTable("participants", {
   deletedAt: datetime("deleted_at", { mode: "string" })
 });
 
-export const eventManagement = mysqlTable("event_booking_board", {
+export const eventManagement = mysqlTable("event_planner", {
   id: serial('id').primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   description: varchar("description", { length: 500 }),
@@ -46,35 +46,30 @@ export const eventManagement = mysqlTable("event_booking_board", {
     .notNull(),
 
   // DATETIME avoids old MySQL "one timestamp only" restriction
-  updatedAt: datetime("updated_at", { mode: "string" })
-    .notNull(),
+  updatedAt: datetime("updated_at", { mode: "string" }),    
 
   // Nullable without default to avoid errors
   deletedAt: datetime("deleted_at", { mode: "string" })
 });
 
-export const eventRegistrations = mysqlTable("event_registry_board", {
+export const eventRegistrations = mysqlTable("event_enrollments", {
   id: serial('id').primaryKey(),
-  eventId: int("event_id").references(()=>eventManagement.id).notNull(),
-  participantId: int("participant_id").references(()=>participants.id).notNull(),
-  status: varchar("status", { enum: ['registered','attended','missed'] }).notNull().default('registered'), // registered, attended, missed
-  // createdAt: timestamp({ mode: 'date', fsp: 6 })
-  // .default(sql`now(6)`)
-  // .notNull(),
+  // Match eventManagement.id (serial = unsigned BIGINT)
+  eventId: bigint("event_id", { mode: "number", unsigned: true })
+    .references(() => eventManagement.id)
+    .notNull(),
 
-  // // DATETIME avoids old MySQL "one timestamp only" restriction
-  // updatedAt: datetime("updated_at", { mode: "string" })
-  //   .notNull(),
-
-  // // Nullable without default to avoid errors
-  // deletedAt: datetime("deleted_at", { mode: "string" })
-  createdAt: timestamp("created_at", { mode: "string" })
+  // Match participants.id (serial = unsigned BIGINT)
+  participantId: bigint("participant_id", { mode: "number", unsigned: true })
+    .references(() => participants.id)
+    .notNull(),
+  status: mysqlEnum("status",['registered','attended','missed']).notNull().default('registered'), // registered, attended, missed  
+   createdAt: timestamp("created_at", { mode: "string" })
     .default(sql`CURRENT_TIMESTAMP`)
     .notNull(),
 
   // Use DATETIME without default (set updatedAt in app code)
-  updatedAt: datetime("updated_at", { mode: "string" })
-    .notNull(),
+  updatedAt: datetime("updated_at", { mode: "string" }),    
 
   deletedAt: datetime("deleted_at", { mode: "string" })
 });

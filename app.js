@@ -5,6 +5,7 @@ const participantAuthRouter = require('./routes/participant-auth-route');
 const adminAuthGuard = require('./middlewares/admin-auth');
 const participantAuthGuard = require('./middlewares/participant-auth');
 const eventRoute = require('./routes/event-route');
+const swaggerDocs = require("./utils/swagger");
 const dotenv = require('dotenv');
 
 dotenv.config();
@@ -23,6 +24,8 @@ app.use('/api/v1/participant/event',participantAuthGuard,eventRoute); //Mounting
 app.get('/',(req,res)=>{
     return res.status(200).send("System stable and working..");
 });
+
+swaggerDocs(app, port);
 
 app.listen(port, (err) => {
     if (err) {

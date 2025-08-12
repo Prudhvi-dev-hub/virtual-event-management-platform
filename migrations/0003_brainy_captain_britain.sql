@@ -1,0 +1,1 @@
+ALTER TABLE `participants` MODIFY COLUMN `last_name` varchar(255);

@@ -1,10 +1,10 @@
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
 const {db} = require('../db/connection');
 const {eventManagement,eventRegistrations} = require('../db/schema');
-const {eq} = require('drizzle-orm');
+const {and,eq} = require('drizzle-orm');
 const { default: axios } = require('axios');
+const {sendEmail} = require('../utils/sendEmail');
+const {participants} = require('../db/schema');
 
 dotenv.config();
 
@@ -14,13 +14,19 @@ const JWT_EXPIRATION = process.env.JWT_EXPIRATION || '1d';
 const createEvent = async (data)=>{
     try{
         //Insert user into database
-        await db.insert(eventManagement).values(data);
+        const [createdEvent] = await db.insert(eventManagement).values(data);
+        const insertedId = createdEvent?.insertId;
+    
+        const [insertedRow] = await db
+        .select()
+        .from(eventManagement)
+        .where(eq(eventManagement.id, insertedId));
+        console.log("Event created successfully:", createdEvent);
+        return {status: 201, data: {data: insertedRow, message: "Event created successfully"}};
     }catch (error) {
         console.error("Error inserting user into database:", error);
         return {status: 500, data: "Unable to create event"};
     }
-
-    return {status: 201, data: "Event created successfully"};
 }
 
 const updateEvent = async(eventId,data)=>{ 
@@ -52,59 +58,60 @@ const updateEvent = async(eventId,data)=>{
         await db.update(eventManagement)
             .set(toUpdateEvent)
             .where(eq(eventManagement.id, eventId));
+        return {status: 200, data: {message: "Event updated successfully"}};
     } catch (error) {
         console.error("Error during login:", error);
         return {status: 500, data: "Internal server error"};
     }
 }
 
-const registerEvent = async (eventId,data) => {
+const registerEvent = async (eventId,authUser) => {
     try {
         // Insert event into database
-        const existingEvent = await db.select().from(eventManagement).where(eq(eventManagement.id, eventId)).then(events => events[0]);
+        const [existingEvent] = await db.select().from(eventManagement).where(eq(eventManagement.id, eventId));
         if (!existingEvent) {
             return {status: 404, data: "Event not found"};
         }
-        data.eventId = eventId; // Associate the registration with the event      
+        // Check if the user is already registered for the event
+        const [existingRegistration] = await db
+        .select()
+        .from(eventRegistrations)
+        .where(
+            and(
+            eq(eventRegistrations.eventId, eventId),
+            eq(eventRegistrations.participantId, authUser.user_id)
+            )
+        )
+        console.log("Existing registration:", existingRegistration);
+        if (existingRegistration) {
+            return {status: 400, data: "User already registered for this event"};
+        }            
+        const [participant] = await db
+        .select()
+        .from(participants)
+        .where(eq(participants.id, authUser.user_id));
+
+         if (!participant) {
+            return {status: 404, data: "Participant not found"};
+        }
+
+        const data = {};
+        data.eventId = eventId; // Associate the registration with the event 
+        data.participantId = authUser.user_id; // Associate the registration with the participant
         data.status = 'registered'; // Set initial status to 'registered'        
-        await db.insert(eventRegistrations).values(data);
+        const [registeredEvent] = await db.insert(eventRegistrations).values(data);
+        const insertedId = registeredEvent?.insertId;
+    
+        const [insertedRow] = await db
+        .select()
+        .from(eventRegistrations)
+        .where(eq(eventRegistrations.id, insertedId));
         //Send Email to participant on successful registration
-        await sendEmail(data.email, "Event Registration Confirmation", `You have successfully registered for the event: ${existingEvent.name}`);
-        return {status: 201, data: "Event registered successfully"};
+        await sendEmail(participant.email, participant?.firstName,participant?.lastName);
+        return {status: 201, data: {message: "Event registered & email sent successfully", data: insertedRow}};
     } catch (error) {
         console.error("Error inserting event into database:", error);
         return {status: 500, data: "Unable to register event"};
-    }
-}
-
-const sendEmail = async (to, subject, text) => {
-    // Placeholder for email sending logic
-    // This function should integrate with an email service provider
-    console.log(`Sending email to ${to} with subject "${subject}" and text "${text}"`);
-    await axios.post('https://send.api.mailtrap.io/api/send', {
-        to,
-        subject,
-        text
-    }, {
-        headers: {
-            'Api-Token': process.env.MAILTRAP_API_TOKEN // Ensure you have this token in your .env file
-        },
-    Body: 
-    {
-        to: [
-        {
-        "email": "john_doe@example.com",
-        "name": "John Doe"
-        }
-    ]
-},
-        from: {
-            email: "prudhvi@yopmail.com"
-        }
-    })
-    .catch(error => {
-        console.error("Error sending email:", error);
-        throw new Error("Email sending failed");
     }
 }
 

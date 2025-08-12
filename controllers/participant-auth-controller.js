@@ -27,13 +27,19 @@ const register = async (data)=>{
             return {status: 400,data: "Invalid Email"};
         }
             
-        await db.insert(participants).values(toCreateParticipant);
+        const [createdParticipant] = await db.insert(participants).values(toCreateParticipant);
+        const insertedId = createdParticipant?.insertId;
+            
+        const [insertedRow] = await db
+                .select()
+                .from(eventManagement)
+                .where(eq(eventManagement.id, insertedId));
+                console.log("Event created successfully:", createdEvent);
+                return {status: 201, data: {data: insertedRow, message: "Event created successfully"}};
     }catch (error) {
         console.error("Error inserting user into database:", error);
         return {status: 500, data: "Email already exists"};
     }
-
-    return {status: 200, data: "Participant registered successfully"};
 }
 
 const login = async(data)=>{ 

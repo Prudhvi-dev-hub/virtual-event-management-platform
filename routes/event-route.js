@@ -19,8 +19,8 @@ router.post('/:id/update',async(req,res)=>{
 
 router.post('/:id/register',async(req,res)=>{
     const eventId = req.params.id;
-    const toRegisterEvent = req.body;
-    const eventStatus = await registerEvent(eventId, toRegisterEvent);
+    const authUser = req.authUser;
+    const eventStatus = await registerEvent(eventId, authUser);
     return res.status(eventStatus.status).send(eventStatus.data);
 });
 

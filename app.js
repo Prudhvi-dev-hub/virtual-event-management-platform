@@ -4,6 +4,7 @@ const adminAuthRouter = require('./routes/admin-auth-route');
 const participantAuthRouter = require('./routes/participant-auth-route');
 const adminAuthGuard = require('./middlewares/admin-auth');
 const participantAuthGuard = require('./middlewares/participant-auth');
+const eventRoute = require('./routes/event-route');
 const dotenv = require('dotenv');
 
 dotenv.config();
@@ -15,6 +16,8 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use('/api/v1/admin',adminAuthRouter); //Mounting of auth route
 app.use('/api/v1/participant',participantAuthRouter); //Mounting of auth route
+app.use('/api/v1/admin/event',adminAuthGuard,eventRoute); //Mounting of event route
+app.use('/api/v1/participant/event',participantAuthGuard,eventRoute); //Mounting of event route
 
 //Health check
 app.get('/',(req,res)=>{
